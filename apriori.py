@@ -5,13 +5,16 @@ import argparse
 labels = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-status', 'occupation', 'relationship', 'race', 'sex', 'capital-gain', 'capital-loss', 'hours-per-week', 'native-country', 'probability']
 
 def gen_transactions_from_csv(file):
+    """ Produce a list of transactions, where each transaction is a set of tuples
+    containing the label and value of the item. In theory, this should be the only
+    method that needs to be reimplemented for simple datasets. """
     with open(file, newline='') as csvfile:
         database = []
         for row in csv.reader(csvfile, delimiter=','):
             # Create a tuple of the label and the value of each item in the row
             # this will ensure different hashes in the case of values
             # from different columns coincidentally being equal
-            database.append([(labels[i], row[i].strip()) for i in range(len(labels) - 1)])
+            database.append({(labels[i], row[i].strip()) for i in range(len(labels) - 1)})
             # length - 1 to ignore probability
         return database
 
