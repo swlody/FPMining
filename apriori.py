@@ -1,6 +1,6 @@
 from __future__ import print_function
-from itertools import combinations
 from argparse import ArgumentParser
+from itertools import combinations
 from csv import reader
 
 
@@ -12,6 +12,7 @@ def main():
     freq_itemsets = apriori(database, args.min_sup)
 
     for j in range(len(freq_itemsets)):
+        # print("Frequent", j + 1, "itemsets:", len(freq_itemsets[j]) if freq_itemsets[j] else 0)
         print("Frequent", j + 1, "itemsets:", freq_itemsets[j])
         if j != len(freq_itemsets) - 1:
             print()
@@ -48,13 +49,14 @@ def gen_freq_1_itemsets(database, min_sup):
     count = {}
     for transaction in database:
         for item in transaction:
-            # Use default of 0 for count.get() if item is not already in dict
+            # Use default of 0 for count.get() if item is not already counted
             count[item] = count.get(item, 0) + 1
     return [[k] for k, v in count.items() if v >= min_sup]
 
 
 def has_infrequent_subset(candidate, itemsets, k):
-    return all(list(s) not in itemsets for s in combinations(candidate, k - 1))
+    """ Returns true if any (k-1)-subset of the candidate itemset is not an L_(k-1) frequent itemset """
+    return all(list(subset) not in itemsets for subset in combinations(candidate, k-1))
 
 
 def candidates(itemsets, k):
@@ -64,13 +66,15 @@ def candidates(itemsets, k):
         for l2 in itemsets:
             # If the itemsets are the same except for the last item
             if all(l1[i] == l2[i] for i in range(length)) and l1[length] < l2[length]:
+                # Conveniently (and necessary for has_infrequent_subset() to work correctly),
+                # the candidate list will always be sorted
                 candidate = join(l1, l2)
                 if not has_infrequent_subset(candidate, itemsets, k):
                     yield candidate
 
 
 def apriori(database, min_sup):
-    # Convert from relative (ratio of occurences) to absolute (number of occurences) support
+    # Convert from relative (ratio of occurrences) to absolute (number of occurrences) support
     min_sup *= len(database)
     itemsets_list = [gen_freq_1_itemsets(database, min_sup)]
     k = 2
