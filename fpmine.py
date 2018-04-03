@@ -15,12 +15,14 @@ def main():
     else:
         freq_itemsets = apriori(database, args.min_sup)
 
-    for j in range(1, len(freq_itemsets)):
+    for j in range(1, len(freq_itemsets) - 1):
         if args.count:
             print("Frequent", j, "itemsets:", len(freq_itemsets[j]) if freq_itemsets[j] else 0)
         else:
-            print("Frequent", j, "itemsets:", freq_itemsets[j])
-            if j != len(freq_itemsets) - 1:
+            print("Frequent", j, "itemsets:")
+            for itemset in freq_itemsets[j]:
+                print(itemset)
+            if j != len(freq_itemsets) - 2:
                 print()
 
 
@@ -67,19 +69,23 @@ def join(l1, l2):
     return copy
 
 
-def gen_freq_1_itemsets(database, min_sup):
+def get_freq_1_itemsets(supports):
+    return [[k] for k, v in supports.items()]
+
+
+def get_supports(database, min_sup):
     """Get all items in the database that meet the minimum support"""
-    count = {}
+    supports = {}
     for transaction in database:
         for item in transaction:
-            # Use default of 0 for count.get() if item is not already counted
-            count[item] = count.get(item, 0) + 1
-    return [[k] for k, v in count.items() if v >= min_sup]
+            # Use default of 0 for support.get() if item is not already counted
+            supports[item] = supports.get(item, 0) + 1
+    return {k: v for k, v in supports.items() if v >= min_sup}
 
 
 def has_infrequent_subset(candidate, itemsets, k):
     """Returns true if any (k-1)-subset of the candidate itemset is not an L_(k-1) frequent itemset"""
-    return all(list(subset) not in itemsets for subset in combinations(candidate, k-1))
+    return all(list(subset) not in itemsets for subset in combinations(candidate, k - 1))
 
 
 def candidates(itemsets, k):
@@ -103,17 +109,17 @@ def apriori(database, min_sup):
     @param: database A list of transactions, where each transaction is a list or set of items
     @param: min_sup The minimum support for an itemset to be considered frequent. Must be a number between 0 and 1.
 
-    @returns: itemsets_list A list of frequent k-itemsets indexable with itemsets_list[k]
+    @returns: itemsets_list A list of frequent k-itemsets that can indexed with itemsets_list[k]
     """
-    
+
     # Convert from relative (ratio of occurrences) to absolute (number of occurrences) support
     min_sup *= len(database)
-    itemsets_list = [None, gen_freq_1_itemsets(database, min_sup)]
+    itemsets_list = [None, get_freq_1_itemsets(get_supports(database, min_sup))]
     k = 2
-    while itemsets_list[k-1]:
+    while itemsets_list[k - 1]:
         itemsets_list.append([])
         # For each potential candidate
-        for candidate in candidates(itemsets_list[k-1], k):
+        for candidate in candidates(itemsets_list[k - 1], k):
             count = 0
             # Count the number of times it appears in the database
             for transaction in database:
@@ -126,16 +132,54 @@ def apriori(database, min_sup):
     return itemsets_list
 
 
-class fp_tree:
-    pass
+class FPNode:
+    def __init__(self, item):
+        self.children = set()
+        self.item = item
+        self.count = 1
+
+    def insert(self, sorted_items):
+        if not sorted_items:
+            return
+        already_child_of_node = False
+        for child in self.children:
+            if sorted_items[-1] == child.item:
+                child.count += 1
+                child.insert(sorted_items[:-1])
+                already_child_of_node = True
+        if not already_child_of_node:
+            child = FPNode(sorted_items[-1])
+            self.children.add(child)
+            child.insert(sorted_items[:-1])
 
 
-class fp_node:
-    pass
+def gen_fp_tree(supports, database, min_sup):
+    tree = FPNode(None)
+    for transaction in database:
+        # Sort the items in the transaction according to their supports, if they meet the min support
+        trimmed_transaction = [item for item in transaction if item in supports]
+        sorted_items = sorted(trimmed_transaction, key=lambda k: supports[k], reverse=True)
+        # If the list is not empty, add it to the tree
+        if sorted_items:
+            tree.insert(sorted_items)
+    return tree
 
 
 def fp_growth(database, min_sup):
-    pass
+    min_sup *= len(database)
+    supports = get_supports(database, min_sup)
+    itemsets_list = [None, get_freq_1_itemsets(supports)]
+
+    tree = gen_fp_tree(supports, database, min_sup)
+
+    single_path = False
+    for child in tree.children:
+        if not child.children:
+            single_path = True
+    if not single_path:
+        pass  # traverse tree?
+
+    return itemsets_list
 
 
 def init_parser():
@@ -144,7 +188,7 @@ def init_parser():
     parser.add_argument('filename',
                         help="Path to CSV file with transaction database.")
     parser.add_argument('--fp_growth', action='store_true',
-                        "Use the FP-Growth algorithm for frequent pattern mining rather than Apriori.")
+                        help="Use the FP-Growth algorithm for frequent pattern mining rather than Apriori.")
     parser.add_argument('--min_sup', type=float, nargs='?', default=0.2,
                         help="Minimum support an itemset must meet to avoid being pruned. "
                              "Must be between 0 and 1. (default 0.2)")
