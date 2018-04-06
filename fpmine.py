@@ -185,11 +185,6 @@ class FPTree:
         # Insert the conditional pattern into the tree, treating it like a transaction
         self.root.insert(conditional_pattern, self.header, conditional=True)
 
-    # TODO Unused
-    def get_unique_leaf_node(self):
-        """Gets the unique leaf node if one exists - i.e. the tree only has one path, otherwise returns None."""
-        return self.root.get_unique_leaf_node()
-
     def get_prefix_paths(self, item):
         """Given an item, get all paths from the root to nodes containing the item"""
         return [node.get_path_from_root() for node in self.header[item]]
@@ -250,7 +245,7 @@ class FPNode:
                 break
         if not already_child_of_node:
             # Create a new subtree of the remaining items with the current node as the root
-            child = FPNode(item, parent=self)
+            child = FPNode(item, parent=self, count=count)
             if item in header:
                 header[item].add(child)
             else:
@@ -268,16 +263,6 @@ class FPNode:
         # Children is a one-member set, so extract the only child
         (child,) = self.children
         return child.get_unique_leaf_node()
-
-    def get_path_from_root(self):
-        """Starting from a node, builds a list of nodes between the node and the root of the tree"""
-        prefix_path = []
-        node = self
-        while not node.is_root():
-            prefix_path.append(node.parent)
-            node = node.parent
-        prefix_path.reverse()
-        return prefix_path
 
     def subtree_to_string(self, indent=0):
         """Returns a string representation of the subtree of the given node"""
